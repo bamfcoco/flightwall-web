@@ -28,66 +28,162 @@ body {
 }
 
 .meta {
-  font-size: 0.8rem;
-  opacity: 0.7;
   display: flex;
+  align-items: center;
   gap: 12px;
+  font-size: 0.8rem;
+  opacity: 0.9;
 }
+
+/* Airport input / button */
+
+#airport-input {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #445;
+  background: #0b1020;
+  color: #e4f2ff;
+  font-size: 0.85rem;
+}
+
+#airport-input::placeholder {
+  color: #667;
+}
+
+#airport-set-btn {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  border: 1px solid #567;
+  background: #1c2438;
+  color: #e4f2ff;
+  cursor: pointer;
+}
+
+#airport-set-btn:hover {
+  background: #273454;
+}
+
+/* Radius slider */
+
+.radius-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 0.8rem;
+}
+
+#radius-slider {
+  accent-color: #2f7bff;
+}
+
+#radius-label {
+  opacity: 0.85;
+}
+
+/* Main wall grid */
 
 .wall {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
+
+/* Section headers span the full grid width */
+
+.section-title {
+  grid-column: 1 / -1;
+  font-size: 1rem;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+/* Flight cards */
 
 .flight-card {
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 12px;
-  background: radial-gradient(circle at top left, #101830, #050810);
+  background: radial-gradient(circle at top left, #1b2638, #060912);
+  border-radius: 10px;
+  padding: 10px 14px;
+  border: 1px solid #1f2a3d;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, border-color 0.1s ease-out;
 }
 
-/* Updated to support logo + callsign cleanly */
+.flight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.7);
+  border-color: #35527c;
+}
+
+/* Pattern cards – red accent */
+
+.flight-card.pattern-card {
+  border-color: #ff4d6a;
+  background: radial-gradient(circle at top left, #331320, #08050a);
+}
+
+.flight-card.pattern-card:hover {
+  border-color: #ff8097;
+  box-shadow: 0 12px 26px rgba(255, 80, 120, 0.45);
+}
+
+/* Title row */
+
 .flight-title {
   display: flex;
-  align-items: center;        /* Align logo + title nicely */
-  gap: 0.5rem;                /* Space between logo and title */
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
 }
 
-.flight-title .callsign {
+.callsign {
+  font-size: 1.1rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  font-size: 1rem;
+  letter-spacing: 0.04em;
 }
 
-/* Airline text no longer shown, but left in case needed later */
-.flight-title .airline {
-  display: none;
-}
+/* Airline logo */
 
-/* Logo styling */
 .airline-logo {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   object-fit: contain;
-  border-radius: 3px;
-  flex-shrink: 0;
+  background: #000;
+  padding: 2px;
 }
 
-.flight-route {
-  font-size: 0.95rem;
-  margin-bottom: 6px;
-}
-
-.flight-route span {
-  font-weight: 600;
-}
+/* Meta row */
 
 .flight-meta {
-  font-size: 0.8rem;
-  opacity: 0.8;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 14px;
+  font-size: 0.8rem;
+  opacity: 0.95;
+}
+
+.dist-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Make distance pop extra on pattern cards */
+
+.flight-card.pattern-card .dist-label {
+  color: #ffb0c0;
+}
+
+/* Last update text */
+
+#last-update {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-left: 10px;
 }

@@ -28,7 +28,6 @@ const LOGO_BY_PREFIX = {
   CPZ: "/static/logos/cpz.png",
   EDV: "/static/logos/edv.png",
   CJT: "/static/logos/cjt.png",
-  // Add GA logo here if desired
 };
 
 console.log("[FlightWall] app.js loaded");
@@ -43,9 +42,9 @@ const STORAGE_KEY_RADIUS = "flightwall_radius_nm_v1";
 let currentCenterLat = null;
 let currentCenterLon = null;
 let currentCenterLabel = "";
+let currentFieldElevFt = null; // airport field elevation in feet (MSL)
 
-// null means "no explicit value yet" so we can tell if we should use config
-let currentRadiusNm = null;
+let currentRadiusNm = null; // null = not set yet, so config can fill
 
 let radiusLabelEl = null;
 let radiusSliderEl = null;
@@ -58,6 +57,9 @@ function loadStateFromStorage() {
       if (typeof c.lat === "number") currentCenterLat = c.lat;
       if (typeof c.lon === "number") currentCenterLon = c.lon;
       if (typeof c.label === "string") currentCenterLabel = c.label;
+      if (typeof c.field_elev_ft === "number") {
+        currentFieldElevFt = c.field_elev_ft;
+      }
     }
   } catch (e) {
     console.warn("[FlightWall] Failed to load center from storage", e);
@@ -84,6 +86,10 @@ function saveCenterToStorage() {
         lat: currentCenterLat,
         lon: currentCenterLon,
         label: currentCenterLabel || "",
+        field_elev_ft:
+          typeof currentFieldElevFt === "number" && !Number.isNaN(currentFieldElevFt)
+            ? currentFieldElevFt
+            : null,
       };
       localStorage.setItem(STORAGE_KEY_CENTER, JSON.stringify(payload));
     }
@@ -133,15 +139,12 @@ function initRadiusControls() {
     return;
   }
 
-  // If we still don't have a radius, default it
   if (currentRadiusNm === null || Number.isNaN(currentRadiusNm)) {
     currentRadiusNm = 50;
   }
 
-  // Clamp into [10, 250]
   currentRadiusNm = Math.min(250, Math.max(10, Math.round(currentRadiusNm)));
 
-  // If controls already exist, just sync and bail
   if (radiusSliderEl && radiusLabelEl) {
     radiusSliderEl.value = currentRadiusNm;
     updateRadiusDisplay();
@@ -150,15 +153,9 @@ function initRadiusControls() {
 
   const radiusContainer = document.createElement("div");
   radiusContainer.className = "radius-control";
-  radiusContainer.style.display = "flex";
-  radiusContainer.style.alignItems = "center";
-  radiusContainer.style.gap = "8px";
-  radiusContainer.style.marginLeft = "12px";
 
   radiusLabelEl = document.createElement("span");
   radiusLabelEl.id = "radius-label";
-  radiusLabelEl.style.fontSize = "0.85rem";
-  radiusLabelEl.style.opacity = "0.9";
 
   radiusSliderEl = document.createElement("input");
   radiusSliderEl.type = "range";
@@ -179,15 +176,12 @@ function initRadiusControls() {
   radiusSliderEl.addEventListener("change", () => {
     console.log("[FlightWall] Radius changed to", currentRadiusNm, "NM");
     saveRadiusToStorage();
-    refreshFlights(); // re-fetch with new radius
+    refreshFlights();
   });
 
   radiusContainer.appendChild(radiusLabelEl);
   radiusContainer.appendChild(radiusSliderEl);
-
-  // Insert near the end of the meta row (right side)
   metaEl.appendChild(radiusContainer);
-
   updateRadiusDisplay();
 }
 
@@ -201,7 +195,6 @@ async function fetchConfig() {
     const radiusNmFromCfg =
       typeof cfg.radius_km === "number" ? cfg.radius_km / 1.852 : null;
 
-    // Only seed center from config if we don't already have one from storage
     if (
       currentCenterLat === null ||
       currentCenterLon === null ||
@@ -218,7 +211,6 @@ async function fetchConfig() {
       }
     }
 
-    // Only seed radius from config if we don't already have one from storage
     if (
       (currentRadiusNm === null || Number.isNaN(currentRadiusNm)) &&
       radiusNmFromCfg !== null
@@ -249,15 +241,13 @@ function buildDisplayTitleAndAirline(f) {
 
   let displayTitle = rawCallsign || "UNKNOWN";
 
-  // GA aircraft: title = callsign
   if (airlineText === "GA Aircraft") {
     return {
-      displayTitle: displayTitle,
+      displayTitle,
       airlineText: "",
     };
   }
 
-  // Airline flight with recognized airline + flight number
   if (rawCallsign && airlineText) {
     const m = rawCallsign.match(/^([A-Z]+)(\d+.*)$/i);
     if (m && m[2]) {
@@ -274,77 +264,65 @@ function buildDisplayTitleAndAirline(f) {
   };
 }
 
-function renderFlights(flights) {
-  wallEl.innerHTML = "";
+// Create a card DOM node for a given flight; return {card, distNM, altitudeFt}
+function makeFlightCard(f) {
+  const card = document.createElement("div");
+  card.className = "flight-card";
 
-  if (!flights.length) {
-    wallEl.innerHTML = `<p>No flights currently in range.</p>`;
-    return;
+  let callsign = "";
+  if (f.callsign && typeof f.callsign === "string") {
+    callsign = f.callsign.trim();
+  }
+  const hasCallsign = callsign !== "";
+  const linkHref = hasCallsign
+    ? `https://flightaware.com/live/flight/${encodeURIComponent(callsign)}`
+    : null;
+
+  const { displayTitle } = buildDisplayTitleAndAirline(f);
+
+  const prefix = getPrefixFromCallsign(callsign);
+  const logoUrl =
+    prefix && LOGO_BY_PREFIX[prefix] ? LOGO_BY_PREFIX[prefix] : null;
+
+  let distNM = null;
+  if (typeof f.distance_km === "number") {
+    distNM = f.distance_km / 1.852;
   }
 
-  for (const f of flights) {
-    const card = document.createElement("div");
-    card.className = "flight-card";
+  const altitudeFt =
+    typeof f.altitude_ft === "number" ? f.altitude_ft : null;
 
-    // Normalize callsign for FlightAware link
-    let callsign = "";
-    if (f.callsign && typeof f.callsign === "string") {
-      callsign = f.callsign.trim();
-    }
-    const hasCallsign = callsign !== "";
-    const linkHref = hasCallsign
-      ? `https://flightaware.com/live/flight/${encodeURIComponent(callsign)}`
-      : null;
+  const metaParts = [];
 
-    const { displayTitle } = buildDisplayTitleAndAirline(f);
+  if (distNM !== null) {
+    metaParts.push(
+      `<span class="dist-label">Dist: ${distNM.toFixed(1)} NM</span>`
+    );
+  }
 
-    // Determine airline logo
-    const prefix = getPrefixFromCallsign(callsign);
-    const logoUrl =
-      prefix && LOGO_BY_PREFIX[prefix] ? LOGO_BY_PREFIX[prefix] : null;
+  if (f.aircraft_type) {
+    metaParts.push(`<span>Type: ${f.aircraft_type}</span>`);
+  }
 
-    // Convert km → nautical miles
-    let distNM = null;
-    if (typeof f.distance_km === "number") {
-      distNM = f.distance_km / 1.852;
-    }
+  if (altitudeFt !== null) {
+    metaParts.push(`<span>Alt: ${altitudeFt.toLocaleString()} ft</span>`);
+  }
 
-    // Build meta row with DIST FIRST
-    const metaParts = [];
+  if (typeof f.bearing_deg === "number") {
+    metaParts.push(`<span>Brg: ${Math.round(f.bearing_deg)}°</span>`);
+  }
 
-    if (distNM !== null) {
-      metaParts.push(
-        `<span style="font-weight:bold; font-size:1.1em;">Dist: ${distNM.toFixed(
-          1
-        )} NM</span>`
-      );
-    }
+  if (typeof f.gs === "number") {
+    metaParts.push(`<span>GS: ${Math.round(f.gs)} kt</span>`);
+  }
 
-    if (f.aircraft_type) {
-      metaParts.push(`<span>Type: ${f.aircraft_type}</span>`);
-    }
+  if (typeof f.baro_rate === "number") {
+    metaParts.push(`<span>V/S: ${Math.round(f.baro_rate)} fpm</span>`);
+  }
 
-    if (f.altitude_ft) {
-      metaParts.push(
-        `<span>Alt: ${f.altitude_ft.toLocaleString()} ft</span>`
-      );
-    }
+  const metaHtml = metaParts.join("");
 
-    if (typeof f.bearing_deg === "number") {
-      metaParts.push(`<span>Brg: ${Math.round(f.bearing_deg)}°</span>`);
-    }
-
-    if (typeof f.gs === "number") {
-      metaParts.push(`<span>GS: ${Math.round(f.gs)} kt</span>`);
-    }
-
-    if (typeof f.baro_rate === "number") {
-      metaParts.push(`<span>V/S: ${Math.round(f.baro_rate)} fpm</span>`);
-    }
-
-    const metaHtml = metaParts.join("");
-
-    const innerContent = `
+  const innerContent = `
       <div class="flight-title">
         ${
           logoUrl
@@ -358,8 +336,8 @@ function renderFlights(flights) {
       </div>
     `;
 
-    if (linkHref) {
-      card.innerHTML = `
+  if (linkHref) {
+    card.innerHTML = `
         <a href="${linkHref}"
            target="_blank"
            rel="noopener noreferrer"
@@ -367,11 +345,89 @@ function renderFlights(flights) {
           ${innerContent}
         </a>
       `;
-    } else {
-      card.innerHTML = innerContent;
+  } else {
+    card.innerHTML = innerContent;
+  }
+
+  return { card, distNM, altitudeFt };
+}
+
+function renderFlights(flights) {
+  wallEl.innerHTML = "";
+
+  if (!flights.length) {
+    wallEl.innerHTML = `<p>No flights currently in range.</p>`;
+    return;
+  }
+
+  const hasFieldElev =
+    typeof currentFieldElevFt === "number" && !Number.isNaN(currentFieldElevFt);
+
+  const patternFlights = [];
+  const otherFlights = [];
+
+  for (const f of flights) {
+    let distNM = null;
+    if (typeof f.distance_km === "number") {
+      distNM = f.distance_km / 1.852;
     }
 
-    wallEl.appendChild(card);
+    const altitudeFt =
+      typeof f.altitude_ft === "number" ? f.altitude_ft : null;
+
+    let inPattern = false;
+
+    if (
+      distNM !== null &&
+      typeof distNM === "number" &&
+      altitudeFt !== null
+    ) {
+      if (hasFieldElev) {
+        const agl = altitudeFt - currentFieldElevFt;
+        if (agl >= 0 && agl <= 2000 && distNM <= 7.0) {
+          inPattern = true;
+        }
+      } else {
+        if (altitudeFt <= 3000 && distNM <= 7.0) {
+          inPattern = true;
+        }
+      }
+    }
+
+    if (inPattern) {
+      patternFlights.push(f);
+    } else {
+      otherFlights.push(f);
+    }
+  }
+
+  // Helper: append a section title that spans the full grid width
+  function appendSectionTitle(text) {
+    const header = document.createElement("h2");
+    header.textContent = text;
+    header.className = "section-title";
+    wallEl.appendChild(header);
+  }
+
+  // In the Pattern
+  if (patternFlights.length > 0) {
+    appendSectionTitle("In the Pattern");
+    for (const f of patternFlights) {
+      const { card } = makeFlightCard(f);
+      card.classList.add("pattern-card");
+      wallEl.appendChild(card);
+    }
+  }
+
+  // Nearby Traffic
+  if (otherFlights.length > 0) {
+    appendSectionTitle(
+      patternFlights.length > 0 ? "Nearby Traffic" : "Traffic"
+    );
+    for (const f of otherFlights) {
+      const { card } = makeFlightCard(f);
+      wallEl.appendChild(card);
+    }
   }
 
   const now = new Date();
@@ -380,7 +436,6 @@ function renderFlights(flights) {
 
 async function refreshFlights() {
   try {
-    // Make sure we have a center; if not, pull defaults
     if (currentCenterLat === null || currentCenterLon === null) {
       await fetchConfig();
     }
@@ -435,8 +490,8 @@ async function setCenterFromAirport() {
 
     const data = await res.json();
     console.log("[FlightWall] Center set response:", data);
+    console.log("[FlightWall] Field elevation from API:", data.elev_ft, "ft");
 
-    // Update local center state from response
     if (typeof data.center_lat === "number") {
       currentCenterLat = data.center_lat;
     }
@@ -449,15 +504,18 @@ async function setCenterFromAirport() {
       currentCenterLabel = "";
     }
 
-    // Persist center so a manual browser refresh keeps it
+    if (typeof data.elev_ft === "number") {
+      currentFieldElevFt = data.elev_ft;
+    } else {
+      currentFieldElevFt = null;
+    }
+
     saveCenterToStorage();
 
-    // Clear the input back to blank (placeholder-only look)
     if (airportInput) {
       airportInput.value = "";
     }
 
-    // Update header + flights after center change
     updateCenterDisplay();
     await refreshFlights();
 
@@ -471,15 +529,12 @@ async function setCenterFromAirport() {
 async function init() {
   console.log("[FlightWall] init() starting");
 
-  // Load any saved center/radius first, so config only fills in gaps
   loadStateFromStorage();
 
   if (airportBtn) {
     airportBtn.addEventListener("click", () => {
       setCenterFromAirport();
     });
-  } else {
-    console.warn("[FlightWall] airportBtn not found");
   }
 
   if (airportInput) {
@@ -488,14 +543,11 @@ async function init() {
         setCenterFromAirport();
       }
     });
-  } else {
-    console.warn("[FlightWall] airportInput not found");
   }
 
-  // Grab defaults (center + radius) only where we don't already have them
   await fetchConfig();
   await refreshFlights();
-  setInterval(refreshFlights, 15000); // refresh every 15 seconds
+  setInterval(refreshFlights, 15000);
 
   console.log("[FlightWall] init() complete");
 }
