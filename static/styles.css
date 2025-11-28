@@ -1,0 +1,93 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  background: #050810;
+  color: #e4f2ff;
+}
+
+.page {
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.meta {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  display: flex;
+  gap: 12px;
+}
+
+.wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.flight-card {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px;
+  background: radial-gradient(circle at top left, #101830, #050810);
+}
+
+/* Updated to support logo + callsign cleanly */
+.flight-title {
+  display: flex;
+  align-items: center;        /* Align logo + title nicely */
+  gap: 0.5rem;                /* Space between logo and title */
+  margin-bottom: 6px;
+}
+
+.flight-title .callsign {
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-size: 1rem;
+}
+
+/* Airline text no longer shown, but left in case needed later */
+.flight-title .airline {
+  display: none;
+}
+
+/* Logo styling */
+.airline-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.flight-route {
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.flight-route span {
+  font-weight: 600;
+}
+
+.flight-meta {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

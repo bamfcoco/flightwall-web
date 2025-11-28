@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FlightWall Web</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Cache-busted CSS: bump v=... whenever you change styles.css -->
+  <link rel="stylesheet" href="/static/styles.css?v=20251126-4" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>FLIGHTWALL WEB</h1>
+      <div class="meta">
+        <span id="location"></span>
+        <span id="last-update"></span>
+
+        <!-- Airport center controls -->
+        <input
+          id="airport-input"
+          type="text"
+          placeholder="Airport (e.g. DTW)"
+        />
+        <button id="airport-set-btn">Set Center</button>
+      </div>
+    </header>
+
+    <main id="wall" class="wall"></main>
+  </div>
+
+  <!-- Cache-busted JS: bump v=... whenever you change app.js -->
+  <script src="/static/app.js?v=20251126-4"></script>
+</body>
+</html>
