@@ -58,10 +58,28 @@ body {
   background: #1c2438;
   color: #e4f2ff;
   cursor: pointer;
+  margin-left: 4px;
 }
 
 #airport-set-btn:hover {
   background: #273454;
+}
+
+/* Geo button */
+
+.geo-btn {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  border: 1px solid #6a7;
+  background: #1c2f24;
+  color: #e9ffe9;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.geo-btn:hover {
+  background: #24402f;
 }
 
 /* Radius slider */

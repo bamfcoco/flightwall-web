@@ -43,11 +43,13 @@ let currentCenterLat = null;
 let currentCenterLon = null;
 let currentCenterLabel = "";
 let currentFieldElevFt = null; // airport field elevation in feet (MSL)
+let isGeoCenter = false;       // true when center came from browser geolocation
 
 let currentRadiusNm = null; // null = not set yet, so config can fill
 
 let radiusLabelEl = null;
 let radiusSliderEl = null;
+let geoBtnEl = null;
 
 function loadStateFromStorage() {
   try {
@@ -59,6 +61,9 @@ function loadStateFromStorage() {
       if (typeof c.label === "string") currentCenterLabel = c.label;
       if (typeof c.field_elev_ft === "number") {
         currentFieldElevFt = c.field_elev_ft;
+      }
+      if (typeof c.is_geo === "boolean") {
+        isGeoCenter = c.is_geo;
       }
     }
   } catch (e) {
@@ -90,6 +95,7 @@ function saveCenterToStorage() {
           typeof currentFieldElevFt === "number" && !Number.isNaN(currentFieldElevFt)
             ? currentFieldElevFt
             : null,
+        is_geo: !!isGeoCenter,
       };
       localStorage.setItem(STORAGE_KEY_CENTER, JSON.stringify(payload));
     }
@@ -185,6 +191,23 @@ function initRadiusControls() {
   updateRadiusDisplay();
 }
 
+function initGeoButton() {
+  if (!airportBtn || geoBtnEl) return;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "geo-center-btn";
+  btn.className = "geo-btn";
+  btn.textContent = "Use My Location";
+
+  airportBtn.insertAdjacentElement("afterend", btn);
+  geoBtnEl = btn;
+
+  geoBtnEl.addEventListener("click", () => {
+    setCenterFromGeolocation();
+  });
+}
+
 async function fetchConfig() {
   try {
     const res = await fetch("/api/config");
@@ -209,6 +232,10 @@ async function fetchConfig() {
       } else {
         currentCenterLabel = "";
       }
+
+      // Default config-based center is not geo
+      isGeoCenter = false;
+      currentFieldElevFt = null;
     }
 
     if (
@@ -363,6 +390,8 @@ function renderFlights(flights) {
   const hasFieldElev =
     typeof currentFieldElevFt === "number" && !Number.isNaN(currentFieldElevFt);
 
+  const skipPattern = isGeoCenter === true; // when using current location, hide pattern section
+
   const patternFlights = [];
   const otherFlights = [];
 
@@ -377,19 +406,21 @@ function renderFlights(flights) {
 
     let inPattern = false;
 
-    if (
-      distNM !== null &&
-      typeof distNM === "number" &&
-      altitudeFt !== null
-    ) {
-      if (hasFieldElev) {
-        const agl = altitudeFt - currentFieldElevFt;
-        if (agl >= 0 && agl <= 2000 && distNM <= 7.0) {
-          inPattern = true;
-        }
-      } else {
-        if (altitudeFt <= 3000 && distNM <= 7.0) {
-          inPattern = true;
+    if (!skipPattern) {
+      if (
+        distNM !== null &&
+        typeof distNM === "number" &&
+        altitudeFt !== null
+      ) {
+        if (hasFieldElev) {
+          const agl = altitudeFt - currentFieldElevFt;
+          if (agl >= 0 && agl <= 2000 && distNM <= 7.0) {
+            inPattern = true;
+          }
+        } else {
+          if (altitudeFt <= 3000 && distNM <= 7.0) {
+            inPattern = true;
+          }
         }
       }
     }
@@ -401,7 +432,6 @@ function renderFlights(flights) {
     }
   }
 
-  // Helper: append a section title that spans the full grid width
   function appendSectionTitle(text) {
     const header = document.createElement("h2");
     header.textContent = text;
@@ -409,8 +439,8 @@ function renderFlights(flights) {
     wallEl.appendChild(header);
   }
 
-  // In the Pattern
-  if (patternFlights.length > 0) {
+  // Only show "In the Pattern" section when pattern logic is enabled
+  if (!skipPattern && patternFlights.length > 0) {
     appendSectionTitle("In the Pattern");
     for (const f of patternFlights) {
       const { card } = makeFlightCard(f);
@@ -419,11 +449,10 @@ function renderFlights(flights) {
     }
   }
 
-  // Nearby Traffic
   if (otherFlights.length > 0) {
-    appendSectionTitle(
-      patternFlights.length > 0 ? "Nearby Traffic" : "Traffic"
-    );
+    const title =
+      !skipPattern && patternFlights.length > 0 ? "Nearby Traffic" : "Traffic";
+    appendSectionTitle(title);
     for (const f of otherFlights) {
       const { card } = makeFlightCard(f);
       wallEl.appendChild(card);
@@ -463,6 +492,43 @@ async function refreshFlights() {
     console.error("[FlightWall] Failed to fetch flights", err);
     wallEl.innerHTML = "<p>Unable to load flights.</p>";
   }
+}
+
+function setCenterFromGeolocation() {
+  if (!navigator.geolocation) {
+    alert("Your browser doesn't support location access.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      console.log("[FlightWall] Geolocation center:", latitude, longitude);
+
+      currentCenterLat = latitude;
+      currentCenterLon = longitude;
+      currentCenterLabel = "Your Location";
+      currentFieldElevFt = null;
+      isGeoCenter = true;
+
+      saveCenterToStorage();
+      updateCenterDisplay();
+      refreshFlights();
+
+      lastUpdateEl.textContent = `Center set to your location at ${new Date().toLocaleTimeString()}`;
+    },
+    (err) => {
+      console.error("[FlightWall] Geolocation error:", err);
+      alert(
+        "Unable to get your location. You may need to allow location access in your browser."
+      );
+    },
+    {
+      enableHighAccuracy: false,
+      maximumAge: 60000,
+      timeout: 10000,
+    }
+  );
 }
 
 async function setCenterFromAirport() {
@@ -510,6 +576,8 @@ async function setCenterFromAirport() {
       currentFieldElevFt = null;
     }
 
+    isGeoCenter = false; // airport-based center → pattern logic enabled
+
     saveCenterToStorage();
 
     if (airportInput) {
@@ -544,6 +612,8 @@ async function init() {
       }
     });
   }
+
+  initGeoButton();
 
   await fetchConfig();
   await refreshFlights();
